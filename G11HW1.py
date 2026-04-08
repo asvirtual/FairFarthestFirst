@@ -16,7 +16,7 @@ def fairFFT(P, k, kA, kB):
     for _ in range(1, k):
         center = None
         maxDist = 0
-        print(k ,kA, kB)
+        #print(k ,kA, kB)
         
         for x in [x for x in P if x not in S]:
             if (
@@ -25,23 +25,28 @@ def fairFFT(P, k, kA, kB):
             ):
                 continue
             
-            d = 0
             minDist = math.inf
+            assigned_c = ''
             for c in S:
+                d = 0
                 for dimIdx, xi in enumerate(x.split(",")[:-1]):
                     d += (float(xi) - float(c.split(",")[dimIdx])) ** 2
                 
                 d = math.sqrt(d)
                 if (d < minDist): 
                     minDist = d
+                    assigned_c = c
             
             if minDist > maxDist:
                 center = x
                 maxDist = minDist
+
+            print(x, " The center ", assigned_c, " with distance: ",minDist)
                 
         if center.split(",")[-1] == "A": kA -= 1
         else: kB -= 1
-        print(center, kA, kB)
+        #print(center, kA, kB)
+        #print(maxDist)
         S.append(center)
     
     return S
