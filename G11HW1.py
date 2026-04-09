@@ -3,6 +3,7 @@ import sys
 import os
 import math
 import random as rand
+import time
 
 
 '''
@@ -74,7 +75,7 @@ def computeRadius(inputPoints, sol):
 
 def pointsetToFloat(inputPoint):
     components = inputPoint.split(",")        
-    return ([float(comp) for comp in components[:-1]], components[-1])
+    return ( [float(comp) for comp in components[:-1]], components[-1] )
 
 
 def main():    
@@ -108,6 +109,14 @@ def main():
     sol = MRFairFFT(inputPoints, kA, kB)
     radius = computeRadius(inputPoints, sol)
     print(f"Computer centers: {sol}, radius: {radius}")
+
+    start = time.perf_counter()
+    sol = MRFairFFT(inputPoints, kA, kB)
+    end = time.perf_counter()
+    
+    radius = computeRadius(inputPoints, sol)
+    print(f"Computer centers: {sol}, radius: {radius}")
+    print(f"Time required for MR-FFT: {end - start}")
 
 
 if __name__ == "__main__":
