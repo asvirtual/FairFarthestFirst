@@ -5,73 +5,83 @@ import math
 import random as rand
 
 
+'''
+    Compute dist(x1, x2) = sqrt( (x1[0] - x2[0])^2 + ... + (x1[d] - x2[d]) ^ 2 )
+'''
+def dist(x1, x2):
+    assert len(x1[0]) == len(x2[0]), f"Incompatible dimensions between x1 = {x1[0]} and x2 = {x2[0]}"
+    return math.sqrt(
+        sum(
+            [(x1[0][i] - x2[0][i]) ** 2 for i in range(len(x1[0]))]
+        )
+    ) 
+
+
 def fairFFT(P, kA, kB):
-    if len(P) == 0: return []
+    if len(P) == 0: return [] 
     
-    S = [rand.choice(P)]
+    sol = [rand.choice(P)]
+    
     k = kA + kB
-    if (S[0][1] == "A"): kA -=1
+    if (sol[0][1] == "A"): kA -=1
     else: kB -= 1
     
     for _ in range(1, k):
         center = None
         maxDist = 0
-        #print(k ,kA, kB)
         
-        for x in [x for x in P if x not in S]:
+        for x in [x for x in P if x not in sol]:
+            # Current point has a label whose budget already ran out, it's not a legal center candidate
             if (
                 (x[1] == "A" and kA <= 0) or
                 (x[1] == "B" and kB <= 0)
             ):
-                continue
+                continue 
             
-            minDist = math.inf
-            for c in S:
-                d = 0
-                for dimIdx, xi in enumerate(x[0]):
-                    d += (float(xi) - float(c[0][dimIdx])) ** 2
-                
-                d = math.sqrt(d)
-                if (d < minDist): 
-                    minDist = d
+            # Compute dist(x, S) = min{ dist(x, c) for every c in S }
+            d = math.inf
+            for c in sol: d = min(dist(x, c), d)
             
-            if minDist > maxDist:
+            # Keep track of the farthest point (i.e. center candidate) from S accordingly to dist(x, S)
+            if d > maxDist:
                 center = x
-                maxDist = minDist
-        
-        # print("Center:", center, "MaxDist:", maxDist)
-        if center[1] == "A": kA -= 1
-        else: kB -= 1
+                maxDist = d
         
         if center is not None: # To handle the case where we run out of points of a certain label
-            S.append(center)
+            if center[1] == "A": kA -= 1
+            else: kB -= 1
+
+            sol.append(center)
     
-    return S
+    return sol
 
 
-def MRFairFFT(data, kA, kB):
-    data = (data
+def MRFairFFT(inputPoints, kA, kB):
+    inputPoints = (inputPoints
         .mapPartitions(lambda it: fairFFT(list(it), kA, kB)) # R1 Reduce phase
         .collect()                                           # R2 Shuffle+Grouping
     )
     
-    return fairFFT(data, kA, kB) # R2 Reduce phase
+    return fairFFT(inputPoints, kA, kB)                      # R2 Reduce phase
 
 
-def formatPointset(dataPoint):
-    components = dataPoint.split(",")
-    floatComp = []
-    for comp in components[:-1]:
-        floatComp.append(float(comp))
-        
-    return ((floatComp, components[-1]))
+def computeRadius(inputPoints, sol):
+    return (inputPoints
+        .map(lambda point: min([ dist(point, center) for center in sol ]))
+        .max()
+    )
+
+
+def pointsetToFloat(inputPoint):
+    components = inputPoint.split(",")        
+    return ([float(comp) for comp in components[:-1]], components[-1])
 
 
 def main():    
     assert len(sys.argv) == 5, "Wrong input params"
 
     # SPARK SETUP
-    conf = SparkConf().setAppName('HW1')
+    conf = SparkConf().setAppName('G11HW1')
     sc = SparkContext(conf=conf)
     
     # 1. Read number of partitions
@@ -83,18 +93,21 @@ def main():
     data_path = sys.argv[1]
     assert os.path.isfile(data_path), "File or folder not found"
     
-    data = sc.textFile(data_path).repartition(numPartitions=L).cache().map(formatPointset)
-    print(f"N = {data.count()}")
+    inputPoints = sc.textFile(data_path).repartition(numPartitions=L).cache().map(pointsetToFloat)
+    print(f"N = {inputPoints.count()}")
     
-    labels_count = (data.map(lambda p: (p[1], 1))
+    labels_count = (inputPoints
+        .map(lambda p: (p[1], 1))
         .reduceByKey(lambda a, b: a + b)
         .collectAsMap())
     
     numA = labels_count.get("A", 0)
     numB = labels_count.get("B", 0)
-
     print("A =", numA, "B =", numB)
-    print(MRFairFFT(data, kA, kB))
+    
+    sol = MRFairFFT(inputPoints, kA, kB)
+    radius = computeRadius(inputPoints, sol)
+    print(f"Computer centers: {sol}, radius: {radius}")
 
 
 if __name__ == "__main__":
