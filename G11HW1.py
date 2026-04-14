@@ -21,21 +21,28 @@ def dist(x1, x2):
 def fairFFT(P, kA, kB):
     if len(P) == 0: return [] 
     
+    totA = sum([1 for x in P if x[1] == "A"])
+    totB = len(P) - totA
+    
     sol = [rand.choice(P)]
     
-    k = kA + kB
-    if (sol[0][1] == "A"): kA -=1
-    else: kB -= 1
-    
+    k = kA + kB 
+    countA, countB = kA, kB # Keep track of "budgets" for the two labels
+
+    if (sol[0][1] == "A"): countA -=1
+    else: countB -= 1
+
     for _ in range(1, k):
         center = None
         maxDist = 0
         
         for x in [x for x in P if x not in sol]:
             # Current point has a label whose budget already ran out, it's not a legal center candidate
+            # Edge case: the budget kL for label L is bigger than the number of points with label L in P
+            #   In this case - (totL < kL) - we can still pick current point if it's a center candidate
             if (
-                (x[1] == "A" and kA <= 0) or
-                (x[1] == "B" and kB <= 0)
+                (x[1] == "A" and countA <= 0 and totB >= kB) or 
+                (x[1] == "B" and countB <= 0 and totA >= kA)
             ):
                 continue 
             
@@ -49,8 +56,8 @@ def fairFFT(P, kA, kB):
                 maxDist = d
         
         if center is not None: # To handle the case where we run out of points of a certain label
-            if center[1] == "A": kA -= 1
-            else: kB -= 1
+            if center[1] == "A": countA -= 1
+            else: countB -= 1
 
             sol.append(center)
     
