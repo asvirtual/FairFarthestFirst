@@ -74,11 +74,17 @@ def MRFairFFT(inputPoints, kA, kB):
 
 
 def computeRadius(inputPoints, sol):
+    # deals with empty partitions
+    def partition_max(it):
+        m = max(it, default=None)
+        if m is None:
+            yield 0
+        yield m
+    
     return (inputPoints
         .map(lambda point: min([ dist(point, center) for center in sol ]))
-        .max()
-    )
-
+        .mapPartitions(partition_max)
+        .max())
 
 def pointsetToFloat(inputPoint):
     components = inputPoint.split(",")        
@@ -113,10 +119,6 @@ def main():
     numB = labels_count.get("B", 0)
     print("A =", numA, "B =", numB)
     
-    sol = MRFairFFT(inputPoints, kA, kB)
-    radius = computeRadius(inputPoints, sol)
-    print(f"Computer centers: {sol}, radius: {radius}")
-
     start = time.perf_counter()
     sol = MRFairFFT(inputPoints, kA, kB)
     end = time.perf_counter()
