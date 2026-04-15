@@ -107,11 +107,13 @@ def main():
 
     # 2. Read input file and subdivide it into K random partitions
     data_path = sys.argv[1]
-    assert os.path.isfile(data_path), "File or folder not found"
+    s = f"File path = {data_path}, KA = {kA}, KB = {kB}, L = {L}"
+    #assert os.path.isfile(data_path), "File or folder not found"
     
     inputPoints = sc.textFile(data_path).repartition(numPartitions=L).cache().map(pointsetToFloat)
-    print(f"N = {inputPoints.count()}")
-    
+
+    N = inputPoints.count()
+
     labels_count = (inputPoints
         .map(lambda p: (p[1], 1))
         .reduceByKey(lambda a, b: a + b)
@@ -119,17 +121,22 @@ def main():
     
     numA = labels_count.get("A", 0)
     numB = labels_count.get("B", 0)
-    print("A =", numA, "B =", numB)
+
+    s += f"\nN = {N}, NA = {numA}, NB = {numB}"
+    
     
     start = time.perf_counter()
     sol = MRFairFFT(inputPoints, kA, kB)
     end = time.perf_counter()
 
-    print(sol)
+    for center in sol:
+        s += f"\nCenter = {center[0]} Label = {center[1]}"
     
     radius = computeRadius(inputPoints, sol)
-    print(f"Computer centers: {sol}, radius: {radius}")
-    print(f"Time required for MR-FFT: {end - start}")
+    s += f"\nObjective function = {radius}"
+    s += f"\nRunning time of MRFairFFT = {int((end - start)*1000)} ms"
+
+    print(s)
 
 
 if __name__ == "__main__":
