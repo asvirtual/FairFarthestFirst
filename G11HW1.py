@@ -28,6 +28,17 @@ def fairFFT(P, kA, kB):
     
     k = kA + kB 
     countA, countB = kA, kB # Keep track of "budgets" for the two labels
+    
+    # Edge case: the budget kL for label L is bigger than the number of points with label L in P
+    #   In this case - (totL < kL) - we pick kL - totL points of the opposite label L'
+
+    if totB < kB: 
+        countB = totB
+        countA += kB - totB
+    
+    if totA < kA:
+        countA = totA
+        countB += kA - totA
 
     if (sol[0][1] == "A"): countA -=1
     else: countB -= 1
@@ -38,13 +49,11 @@ def fairFFT(P, kA, kB):
         
         for x in [x for x in P if x not in sol]:
             # Current point has a label whose budget already ran out, it's not a legal center candidate
-            # Edge case: the budget kL for label L is bigger than the number of points with label L in P
-            #   In this case - (totL < kL) - we can still pick current point if it's a center candidate
             if (
-                (x[1] == "A" and countA <= 0 and totB >= kB) or 
-                (x[1] == "B" and countB <= 0 and totA >= kA)
+                (x[1] == "A" and countA <= 0) or 
+                (x[1] == "B" and countB <= 0)
             ):
-                continue 
+                continue
             
             # Compute dist(x, S) = min{ dist(x, c) for every c in S }
             d = math.inf
@@ -73,17 +82,10 @@ def MRFairFFT(inputPoints, kA, kB):
     return fairFFT(inputPoints, kA, kB)                      # R2 Reduce phase
 
 
-def computeRadius(inputPoints, sol):
-    # deals with empty partitions
-    def partition_max(it):
-        m = max(it, default=None)
-        if m is None:
-            yield 0
-        yield m
-    
+def computeRadius(inputPoints, sol):    
     return (inputPoints
         .map(lambda point: min([ dist(point, center) for center in sol ]))
-        .mapPartitions(partition_max)
+        .mapPartitions(lambda x: [max(x, default=0)]) # max(x, default=0) to handle the case where a partition is empty
         .max())
 
 def pointsetToFloat(inputPoint):
@@ -122,6 +124,8 @@ def main():
     start = time.perf_counter()
     sol = MRFairFFT(inputPoints, kA, kB)
     end = time.perf_counter()
+
+    print(sol)
     
     radius = computeRadius(inputPoints, sol)
     print(f"Computer centers: {sol}, radius: {radius}")
