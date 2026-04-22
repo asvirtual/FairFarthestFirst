@@ -7,7 +7,7 @@ import time
 
 
 '''
-    Compute dist(x1, x2) = sqrt( (x1[0] - x2[0])^2 + ... + (x1[d] - x2[d]) ^ 2 )
+    Compute dist(x1, x2) = sqrt( (x1[0] - x2[0])^2 + ... + (x1[d] - x2[d])^2 )
 '''
 def dist(x1, x2):
     assert len(x1[0]) == len(x2[0]), f"Incompatible dimensions between x1 = {x1[0]} and x2 = {x2[0]}"
@@ -47,7 +47,9 @@ def fairFFT(P, kA, kB):
         center = None
         maxDist = 0
         
-        for x in [x for x in P if x not in sol]:
+        for x in P:
+            if x in sol: continue # Skip points already in the solution
+            
             # Current point has a label whose budget already ran out, it's not a legal center candidate
             if (
                 (x[1] == "A" and countA <= 0) or 
@@ -108,7 +110,7 @@ def main():
     # 2. Read input file and subdivide it into K random partitions
     data_path = sys.argv[1]
     s = f"File path = {data_path}, KA = {kA}, KB = {kB}, L = {L}"
-    #assert os.path.isfile(data_path), "File or folder not found"
+    # assert os.path.isfile(data_path), "File or folder not found"
     
     inputPoints = sc.textFile(data_path).repartition(numPartitions=L).cache().map(pointsetToFloat)
 
@@ -123,7 +125,6 @@ def main():
     numB = labels_count.get("B", 0)
 
     s += f"\nN = {N}, NA = {numA}, NB = {numB}"
-    
     
     start = time.perf_counter()
     sol = MRFairFFT(inputPoints, kA, kB)
